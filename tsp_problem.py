@@ -4,18 +4,6 @@ import torch
 from dataclasses import dataclass
 
 
-def generate_random_points(n, min_coord=0, max_coord=100):
-    """
-    Generate n random 2D points within the specified coordinate range.
-
-    :param n: Number of points to generate
-    :param min_coord: Minimum coordinate value (default 0)
-    :param max_coord: Maximum coordinate value (default 100)
-    :return: numpy array of shape (n, 2) containing the random points
-    """
-    return np.random.uniform(min_coord, max_coord, size=(n, 2))
-
-
 class TSPProblem:
     """
     Represents a Traveling Salesman Problem (TSP) instance.
@@ -151,8 +139,12 @@ class TSPBatch:
             raise IndexError("Index out of range")
 
         return TSPProblem(
-            points=self.points[index][: self.padding_mask[index].sum().int()],
-            solution=self.solutions[index][self.solutions[index] != -1] if self.solutions is not None else None,
+            points=self.points[index][: self.padding_mask[index].sum().int()].cpu().numpy(),
+            solution=(
+                self.solutions[index][self.solutions[index] != -1].cpu().numpy().tolist()
+                if self.solutions is not None
+                else None
+            ),
         )
 
     def __iter__(self):

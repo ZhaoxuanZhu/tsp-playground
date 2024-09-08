@@ -4,6 +4,18 @@ from tsp_problem import TSPProblem, TSPBatch
 from solvers.concorde_solver import ConcordeSolver
 
 
+def generate_random_points(n, min_coord=-1, max_coord=1):
+    """
+    Generate n random 2D points within the specified coordinate range.
+
+    :param n: Number of points to generate
+    :param min_coord: Minimum coordinate value (default -1)
+    :param max_coord: Maximum coordinate value (default 1)
+    :return: numpy array of shape (n, 2) containing the random points
+    """
+    return np.random.uniform(min_coord, max_coord, size=(n, 2))
+
+
 class TSPDataset(Dataset):
     def __init__(self, num_samples=100, min_points=5, max_points=20, seed=None):
         self.num_samples = num_samples
@@ -18,7 +30,7 @@ class TSPDataset(Dataset):
         problems = []
         for _ in range(self.num_samples):
             num_points = np.random.randint(self.min_points, self.max_points + 1)
-            points = np.random.rand(num_points, 2)
+            points = generate_random_points(num_points)
             problem = TSPProblem(points)
             solution, _, _ = ConcordeSolver().solve(problem)
             solution = solution.tolist() + [solution[0]]  # Return to the depot

@@ -6,6 +6,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def get_device():
+    if torch.cuda.is_available():
+        logger.info("Using CUDA")
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        logger.info("Using MPS")
+        return torch.device("mps")
+    else:
+        logger.info("Using CPU")
+        return torch.device("cpu")
+
+
 def get_experiment_dir(experiment_name):
     return os.path.join("results", experiment_name)
 
@@ -31,13 +43,13 @@ def find_latest_checkpoint(experiment_dir):
     return os.path.join(checkpoints_dir, latest_checkpoint)
 
 
-def build_model(checkpoint_path=None):
+def build_model(logger, checkpoint_path=None):
     # Initialize the TransformerSolver
-    d_model = 64
-    nhead = 2
+    d_model = 128
+    nhead = 4
     num_encoder_layers = 6
     num_decoder_layers = 6
-    dim_feedforward = 256
+    dim_feedforward = 512
     dropout = 0.1
 
     solver = TransformerSolver(d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, dropout)
@@ -50,6 +62,17 @@ def build_model(checkpoint_path=None):
     logger.info(f"Number of parameters in the solver: {sum(p.numel() for p in solver.parameters()) / 1e6:.2f} million")
 
     return solver
+
+
+def build_optimizer_and_scheduler(solver, max_lr, use_scheduler, steps_per_epoch, num_epochs):
+    optimizer = torch.optim.Adam(solver.parameters(), lr=max_lr)
+    if use_scheduler:
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=max_lr, steps_per_epoch=steps_per_epoch, epochs=num_epochs
+        )
+    else:
+        scheduler = None
+    return optimizer, scheduler
 
 
 def save_model(solver, epoch, experiment_dir):

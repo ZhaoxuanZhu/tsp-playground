@@ -1,0 +1,17 @@
+name: tsp_playground 
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pytorch=2.0
+  - torchvision
+  - numpy
+  - matplotlib
+  - pandas
+  - scipy
+  - tqdm
+  - pip
+  - pip:
+    - concorde
