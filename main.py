@@ -71,8 +71,8 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
     solver.to(device)
 
     # Get the training and validation dataloaders
-    train_dataloader = get_tsp_dataloader(batch_size=16, num_samples=16, min_points=8, max_points=8, seed=42)
-    val_dataloader = get_tsp_dataloader(batch_size=16, num_samples=16, min_points=8, max_points=8, seed=42)
+    train_dataloader = get_tsp_dataloader(batch_size=16, num_samples=16, min_points=5, max_points=15, seed=42)
+    val_dataloader = get_tsp_dataloader(batch_size=16, num_samples=16, min_points=5, max_points=15, seed=42)
 
     # Build the optimizer and scheduler
     optimizer, scheduler = build_optimizer_and_scheduler(

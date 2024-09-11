@@ -16,9 +16,9 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
-    def forward(self, src):
+    def forward(self, src, src_mask=None):
         src2 = self.norm1(src)
-        src2, _ = self.self_attn(src2, src2, src2)
+        src2, _ = self.self_attn(src2, src2, src2, attn_mask=src_mask)
         src = src + self.dropout1(src2)
         src2 = self.norm2(src)
         src2 = self.linear2(self.dropout(F.relu(self.linear1(src2))))
@@ -37,9 +37,9 @@ class TransformerEncoder(nn.Module):
         )
         self.norm = nn.LayerNorm(embedding_dim)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         for layer in self.layers:
-            x = layer(x)
+            x = layer(x, src_mask=mask)
         return self.norm(x)
 
 
@@ -78,6 +78,7 @@ class TransformerDecoderLayer(nn.Module):
         tgt,
         memory,
         tgt_mask=None,
+        memory_mask=None,  # Added cross attention mask
         use_cache=False,
         cache=None,
     ):
@@ -110,7 +111,7 @@ class TransformerDecoderLayer(nn.Module):
         q = self.cross_q_proj(tgt)
         k = self.cross_k_proj(memory)
         v = self.cross_v_proj(memory)
-        tgt2 = self._attention(q, k, v)
+        tgt2 = self._attention(q, k, v, memory_mask[:, -tgt.size(1) :])
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
 
@@ -129,7 +130,10 @@ class TransformerDecoderLayer(nn.Module):
         # Compute attention scores
         attn = torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim**0.5)
         if attn_mask is not None:
-            attn = attn.masked_fill(attn_mask[None, None] != 0, float("-inf"))
+            if attn_mask.dim() == 2:
+                attn = attn + attn_mask[None, None]
+            elif attn_mask.dim() == 3:
+                attn = attn + einops.rearrange(attn_mask, "(b h) l s -> b h l s", b=q.size(0))
         attn = F.softmax(attn, dim=-1)
 
         # Compute output
@@ -156,6 +160,7 @@ class TransformerDecoder(nn.Module):
         tgt,
         memory,
         tgt_mask=None,
+        memory_mask=None,  # Added cross attention mask
         use_cache=False,
         layer_caches=None,
     ):
@@ -164,7 +169,14 @@ class TransformerDecoder(nn.Module):
 
         for i, layer in enumerate(self.layers):
             cache = layer_caches[i] if layer_caches is not None else None
-            output, new_cache = layer(output, memory, tgt_mask=tgt_mask, use_cache=use_cache, cache=cache)
+            output, new_cache = layer(
+                output,
+                memory,
+                tgt_mask=tgt_mask,
+                memory_mask=memory_mask,
+                use_cache=use_cache,
+                cache=cache,
+            )
             new_caches.append(new_cache)
 
         output = self.norm(output)

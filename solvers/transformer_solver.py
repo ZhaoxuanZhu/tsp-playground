@@ -5,6 +5,7 @@ from tsp_problem import TSPBatch
 from solvers.transformer import TransformerEncoder, TransformerDecoder
 import time
 import logging
+import einops
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +49,24 @@ class TransformerSolver(nn.Module, TSPSolver):
         # Project the points to the embedding space
         embedded_points = self.input_proj(points)
 
-        # Encode the points
-        encoded_messages = self.encoder(embedded_points)
+        # Generate the mask based on the padding mask
+        encoder_mask = einops.rearrange(
+            padding_mask[:, None, None].float().expand(-1, self.num_heads, points.size(1) + 1, -1),
+            "b h l s -> (b h) l s",
+        )
+
+        encoder_mask = torch.where(
+            encoder_mask == 1.0, torch.tensor(0.0, device=device), torch.tensor(float("-inf"), device=device)
+        )
+
+        # Encode the points, passing the generated mask
+        encoded_messages = self.encoder(embedded_points, mask=encoder_mask[:, 1:])
 
         # Generate the square mask
-        mask = nn.Transformer.generate_square_subsequent_mask(points.size(1) + 1, device=device)
+        decoder_mask = nn.Transformer.generate_square_subsequent_mask(points.size(1) + 1, device=device)
 
-        # Create an index tensor from the solutions
-        solution_indices = solutions[:, :-1].unsqueeze(-1).expand(-1, -1, self.d_model)
+        # Create an index tensor from the solutions, clipping to a minimum value of 0
+        solution_indices = solutions[:, :-1].clamp(min=0).unsqueeze(-1).expand(-1, -1, self.d_model)
 
         # Gather the points based on the solution
         ordered_embedded_points = torch.gather(embedded_points, 1, solution_indices)
@@ -66,7 +77,9 @@ class TransformerSolver(nn.Module, TSPSolver):
         ordered_embedded_points = torch.cat([start_tokens, ordered_embedded_points], dim=1)
 
         # Decode the encoded messages
-        decoded_messages, _ = self.decoder(ordered_embedded_points, encoded_messages, mask)
+        decoded_messages, _ = self.decoder(
+            ordered_embedded_points, encoded_messages, tgt_mask=decoder_mask, memory_mask=encoder_mask
+        )
 
         # Calculate the attention scores using additive attention
         # Shape: [batch_size, decoder_points, 1, d_model]
@@ -78,7 +91,7 @@ class TransformerSolver(nn.Module, TSPSolver):
         # Calculate the loss between the attention scores and the solutions
         loss = (
             torch.nn.functional.cross_entropy(
-                attention_scores[:, :-1, :].transpose(-1, -2), solutions[:, :-1], reduction="none"
+                attention_scores[:, :-1, :].transpose(-1, -2), solutions[:, :-1].clamp(min=0), reduction="none"
             )
             * padding_mask
         )
@@ -91,9 +104,20 @@ class TransformerSolver(nn.Module, TSPSolver):
         points = batch.points
         device = points.device
         batch_size, num_points, _ = points.shape
+        padding_mask = batch.padding_mask
 
         # Project the points to the embedding space
         embedded_points = self.input_proj(points)
+
+        # Generate the mask based on the padding mask
+        encoder_mask = einops.rearrange(
+            padding_mask[:, None, None].float().expand(-1, self.num_heads, points.size(1) + 1, -1),
+            "b h l s -> (b h) l s",
+        )
+
+        encoder_mask = torch.where(
+            encoder_mask == 1.0, torch.tensor(0.0, device=device), torch.tensor(float("-inf"), device=device)
+        )
 
         # Encode the points
         encoded_messages = self.encoder(embedded_points)
@@ -112,7 +136,11 @@ class TransformerSolver(nn.Module, TSPSolver):
             for i in range(num_points):
                 # Decode the encoded messages with KV caches
                 decoded_messages, kv_caches = self.decoder(
-                    current_token, encoded_messages, use_cache=self.use_kv_cache, layer_caches=kv_caches
+                    current_token,
+                    encoded_messages,
+                    memory_mask=encoder_mask[:, : i + 1],
+                    use_cache=self.use_kv_cache,
+                    layer_caches=kv_caches,
                 )
 
                 # Calculate the attention scores for the last decoded step using additive attention
@@ -122,6 +150,9 @@ class TransformerSolver(nn.Module, TSPSolver):
 
                 # Mask out already visited cities
                 attention_scores.scatter_(2, solution[:, :i].unsqueeze(1), float("-inf"))
+
+                # Mask out based on padding mask
+                attention_scores.masked_fill_(~padding_mask.unsqueeze(1), float("-inf"))
 
                 # Get the next city
                 _, next_city = attention_scores[:, 0, :].max(dim=-1)
