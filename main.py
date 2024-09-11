@@ -16,7 +16,7 @@ import time
 
 
 # Set up logging
-def setup_logging(experiment_dir):
+def setup_logging(experiment_dir, log_level):
     """
     Set up logging for the experiment.
 
@@ -26,7 +26,7 @@ def setup_logging(experiment_dir):
     log_file = os.path.join(experiment_dir, "experiment.log")
     os.makedirs(experiment_dir, exist_ok=True)
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
     )
@@ -213,13 +213,20 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum number of training epochs (default: 100)")
     parser.add_argument("--max_lr", type=float, default=1e-4, help="Maximum learning rate (default: 1e-3)")
     parser.add_argument("--use_scheduler", action="store_true", help="Whether to use the learning rate scheduler")
+    parser.add_argument(
+        "--log_level",
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level (default: INFO)",
+    )
 
     args = parser.parse_args()
 
     experiment_dir = get_experiment_dir(args.experiment_name)
 
     # Sets up logging for the evaluation process.
-    logger = setup_logging(experiment_dir)
+    logger = setup_logging(experiment_dir, args.log_level)
 
     if args.load_checkpoint:
         latest_checkpoint = find_latest_checkpoint(experiment_dir)

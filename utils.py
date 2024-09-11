@@ -51,8 +51,11 @@ def build_model(logger, checkpoint_path=None):
     num_decoder_layers = 6
     dim_feedforward = 512
     dropout = 0.1
+    use_kv_cache = True
 
-    solver = TransformerSolver(d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, dropout)
+    solver = TransformerSolver(
+        d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, dropout, use_kv_cache
+    )
 
     if checkpoint_path:
         solver.load_state_dict(torch.load(checkpoint_path))
