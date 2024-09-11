@@ -3,13 +3,12 @@ from visualization import plot_tours, plot_loss_curve
 from data import get_tsp_dataloader
 import argparse
 from utils import (
-    build_model,
     find_latest_checkpoint,
     save_model,
     get_experiment_dir,
     get_device,
-    build_optimizer_and_scheduler,
 )
+from builder import build_model, build_optimizer_and_scheduler
 import logging
 import os
 import time
