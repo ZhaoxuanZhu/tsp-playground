@@ -71,8 +71,32 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
     solver.to(device)
 
     # Get the training and validation dataloaders
-    train_dataloader = get_tsp_dataloader(batch_size=1280, num_samples=12800, min_points=10, max_points=15, seed=42)
-    val_dataloader = get_tsp_dataloader(batch_size=1280, num_samples=12800, min_points=10, max_points=15, seed=42)
+    # Create load_path based on the parameters
+    num_samples = 16
+    min_points = 8
+    max_points = 8
+    seed = 42
+
+    train_load_path = f"data/train/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
+    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
+
+    # Update the dataloaders with the new load_paths
+    train_dataloader = get_tsp_dataloader(
+        batch_size=16,
+        num_samples=num_samples,
+        min_points=min_points,
+        max_points=max_points,
+        seed=seed,
+        load_path=train_load_path,
+    )
+    val_dataloader = get_tsp_dataloader(
+        batch_size=16,
+        num_samples=num_samples,
+        min_points=min_points,
+        max_points=max_points,
+        seed=seed,
+        load_path=val_load_path,
+    )
 
     # Build the optimizer and scheduler
     optimizer, scheduler = build_optimizer_and_scheduler(
@@ -161,7 +185,9 @@ def validate(solver, val_dataloader, device):
 
             # Calculate tour lengths using batch operations
             tour_points = torch.gather(batch.points, 1, tours.unsqueeze(-1).expand(-1, -1, 2))
-            tour_lengths = torch.sum(torch.norm(tour_points[:, 1:] - tour_points[:, :-1], dim=2) * batch.padding_mask.float(), dim=1)
+            tour_lengths = torch.sum(
+                torch.norm(tour_points[:, 1:] - tour_points[:, :-1], dim=2) * batch.padding_mask.float(), dim=1
+            )
 
             # Apply padding mask to tour lengths
             total_tour_length += tour_lengths.sum().item()
@@ -190,7 +216,20 @@ def evaluate(solver, experiment_dir, logger):
     solver.to(device)
 
     # Load the validation dataset
-    val_dataloader = get_tsp_dataloader(batch_size=128, num_samples=1280, min_points=10, max_points=15, seed=42)
+    num_samples = 16
+    min_points = 8
+    max_points = 8
+    seed = 42
+
+    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
+    val_dataloader = get_tsp_dataloader(
+        batch_size=16,
+        num_samples=num_samples,
+        min_points=min_points,
+        max_points=max_points,
+        seed=seed,
+        load_path=val_load_path,
+    )
     # Validate the solver
     avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device)
     avg_solution_tour_length = calculate_avg_solution_tour_length(val_dataloader, device)

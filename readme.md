@@ -29,7 +29,7 @@ This project implements a Transformer-based solver for the Traveling Salesman Pr
 
 4. Install the required packages:
    ```
-   pip install torch numpy matplotlib pyconcorde scipy einops 
+   pip install torch torchvision numpy matplotlib einops
    ```
 
 ## Training and Evaluation
