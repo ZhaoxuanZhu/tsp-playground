@@ -1,5 +1,8 @@
 # Ignore .res files
 *.res
+*.sol
+*.pul
+*.sav
 
 # Ignore .png files
 *.png

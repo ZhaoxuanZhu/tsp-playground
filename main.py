@@ -72,29 +72,30 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
 
     # Get the training and validation dataloaders
     # Create load_path based on the parameters
-    num_samples = 16
-    min_points = 8
-    max_points = 8
-    seed = 42
+    num_samples = 51200
+    min_points = 10
+    max_points = 15
+    train_seed = 42
+    val_seed = 21
 
-    train_load_path = f"data/train/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
-    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
+    train_load_path = f"data/train/problems_{num_samples}_{min_points}_{max_points}_{train_seed}.pkl"
+    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{val_seed}.pkl"
 
     # Update the dataloaders with the new load_paths
     train_dataloader = get_tsp_dataloader(
-        batch_size=16,
+        batch_size=2048,
         num_samples=num_samples,
         min_points=min_points,
         max_points=max_points,
-        seed=seed,
+        seed=train_seed,
         load_path=train_load_path,
     )
     val_dataloader = get_tsp_dataloader(
-        batch_size=16,
-        num_samples=num_samples,
+        batch_size=2048,
+        num_samples=int(num_samples / 10),
         min_points=min_points,
         max_points=max_points,
-        seed=seed,
+        seed=val_seed,
         load_path=val_load_path,
     )
 
