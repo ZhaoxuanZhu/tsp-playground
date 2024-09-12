@@ -12,6 +12,7 @@ from builder import build_model, build_optimizer_and_scheduler
 import logging
 import os
 import time
+from tqdm import tqdm
 
 
 # Set up logging
@@ -112,7 +113,7 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
         epoch_loss = 0.0
 
         start_time = time.time()
-        for batch in train_dataloader:
+        for batch in tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}", leave=False):
             batch = batch.to(device)
             optimizer.zero_grad()
             loss = solver(batch)
@@ -121,6 +122,9 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
             if use_scheduler:
                 scheduler.step()
             epoch_loss += loss.item()
+            # Update tqdm bar with the current loss
+            tqdm.set_postfix(loss=f"{loss.item():.4f}")
+
         epoch_time = time.time() - start_time
 
         # Step the learning rate scheduler
@@ -178,7 +182,7 @@ def validate(solver, val_dataloader, device):
     num_tours = 0
     solver.eval()  # Set the model to evaluation mode
     with torch.no_grad():  # Disable gradient calculation for validation
-        for batch in val_dataloader:
+        for batch in tqdm(val_dataloader, desc="Validating", leave=False):
             batch = batch.to(device)
             loss = solver(batch)
             val_loss += loss.item()
@@ -195,6 +199,7 @@ def validate(solver, val_dataloader, device):
 
             # Compute the number of valid tours
             num_tours += batch.padding_mask.size(0)
+            tqdm.set_postfix(f"Current loss: {loss.item():.4f}")
 
     avg_val_loss = val_loss / len(val_dataloader)
     avg_tour_length = total_tour_length / num_tours
