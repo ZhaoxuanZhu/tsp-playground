@@ -1,4 +1,5 @@
 import torch
+import copy
 from helpers import save_model, get_device, get_train_val_dataloaders
 from visualization import plot_tours, plot_loss_curve
 from data import get_tsp_dataloader
@@ -196,6 +197,11 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
     """
     device = get_device()
     solver.to(device)
+    # Make a copy of the solver
+    pretrained_solver = copy.deepcopy(solver)
+    pretrained_solver.to(device)
+    for param in pretrained_solver.parameters():
+        param.requires_grad = False
 
     # Get the training and validation dataloaders
     num_samples = 51200
@@ -214,6 +220,8 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
     avg_solution_tour_length = calculate_avg_solution_tour_length(val_dataloader, device)
     logger.info(f"Average Solution Tour Length: {avg_solution_tour_length:.4f}")
 
+    beta = 0.1
+
     for epoch in range(num_epochs):
         total_loss = 0.0
         start_time = time.time()
@@ -229,14 +237,24 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
                 lengths_1 = calculate_tour_lengths(batch, tours_1)
                 lengths_2 = calculate_tour_lengths(batch, tours_2)
 
+                # Calculate log probabilities of both tours using the pretrained solver
+                pretrained_log_probs_1 = pretrained_solver.log_probability(batch, tours_1)
+                pretrained_log_probs_2 = pretrained_solver.log_probability(batch, tours_2)
+
             # Calculate log probabilities of both tours
             log_probs_1 = solver.log_probability(batch, tours_1)
             log_probs_2 = solver.log_probability(batch, tours_2)
 
             # Calculate DPO loss
             loss = -torch.mean(
-                torch.log(torch.sigmoid(log_probs_1 - log_probs_2)) * (lengths_2 > lengths_1).float()
-                + torch.log(torch.sigmoid(log_probs_2 - log_probs_1)) * (lengths_1 > lengths_2).float()
+                torch.nn.functional.logsigmoid(
+                    beta * (log_probs_1 - log_probs_2 - (pretrained_log_probs_1 - pretrained_log_probs_2))
+                )
+                * (lengths_2 > lengths_1).float()
+                + torch.nn.functional.logsigmoid(
+                    beta * (log_probs_2 - log_probs_1 - (pretrained_log_probs_2 - pretrained_log_probs_1))
+                )
+                * (lengths_1 > lengths_2).float()
             )
 
             optimizer.zero_grad()
