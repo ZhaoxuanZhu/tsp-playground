@@ -4,9 +4,6 @@
 *.pul
 *.sav
 
-# Ignore .png files
-*.png
-
 # Ignore .vscode directory
 .vscode/
 
