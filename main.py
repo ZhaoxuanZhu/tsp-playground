@@ -12,6 +12,7 @@ from builder import build_model, build_optimizer_and_scheduler
 import logging
 import os
 import time
+from tqdm import tqdm
 
 
 # Set up logging
@@ -72,29 +73,30 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
 
     # Get the training and validation dataloaders
     # Create load_path based on the parameters
-    num_samples = 16
-    min_points = 8
-    max_points = 8
-    seed = 42
+    num_samples = 51200
+    min_points = 10
+    max_points = 15
+    train_seed = 42
+    val_seed = 21
 
-    train_load_path = f"data/train/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
-    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
+    train_load_path = f"data/train/problems_{num_samples}_{min_points}_{max_points}_{train_seed}.pkl"
+    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{val_seed}.pkl"
 
     # Update the dataloaders with the new load_paths
     train_dataloader = get_tsp_dataloader(
-        batch_size=16,
+        batch_size=2048,
         num_samples=num_samples,
         min_points=min_points,
         max_points=max_points,
-        seed=seed,
+        seed=train_seed,
         load_path=train_load_path,
     )
     val_dataloader = get_tsp_dataloader(
-        batch_size=16,
-        num_samples=num_samples,
+        batch_size=2048,
+        num_samples=int(num_samples / 10),
         min_points=min_points,
         max_points=max_points,
-        seed=seed,
+        seed=val_seed,
         load_path=val_load_path,
     )
 
@@ -111,15 +113,19 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
         epoch_loss = 0.0
 
         start_time = time.time()
-        for batch in train_dataloader:
-            batch = batch.to(device)
-            optimizer.zero_grad()
-            loss = solver(batch)
-            loss.backward()
-            optimizer.step()
-            if use_scheduler:
-                scheduler.step()
-            epoch_loss += loss.item()
+        with tqdm(total=len(train_dataloader), desc=f"Epoch {epoch + 1}/{num_epochs}", leave=False) as pbar:
+            for batch in train_dataloader:
+                batch = batch.to(device)
+                optimizer.zero_grad()
+                loss = solver(batch)
+                loss.backward()
+                optimizer.step()
+                if use_scheduler:
+                    scheduler.step()
+                epoch_loss += loss.item()
+                pbar.set_postfix(loss=loss.item())
+                pbar.update(1)  # Update the progress bar
+
         epoch_time = time.time() - start_time
 
         # Step the learning rate scheduler
@@ -128,8 +134,8 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
         avg_epoch_loss = epoch_loss / len(train_dataloader)
         losses.append(avg_epoch_loss)
 
-        if (epoch + 1) % 100 == 0:
-            avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device)
+        if (epoch + 1) % 10 == 0:
+            avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device, experiment_dir, epoch)
             # Save the model checkpoint
             save_model(solver, epoch, experiment_dir)
             val_losses.append(avg_val_loss)
@@ -158,7 +164,7 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
     plot_tours(batch, tours, experiment_dir)
 
 
-def validate(solver, val_dataloader, device):
+def validate(solver, val_dataloader, device, experiment_dir, epoch):
     """
     Validate the solver on the validation dataset.
 
@@ -177,7 +183,7 @@ def validate(solver, val_dataloader, device):
     num_tours = 0
     solver.eval()  # Set the model to evaluation mode
     with torch.no_grad():  # Disable gradient calculation for validation
-        for batch in val_dataloader:
+        for batch in tqdm(val_dataloader, desc="Validating", leave=False):
             batch = batch.to(device)
             loss = solver(batch)
             val_loss += loss.item()
@@ -197,6 +203,8 @@ def validate(solver, val_dataloader, device):
 
     avg_val_loss = val_loss / len(val_dataloader)
     avg_tour_length = total_tour_length / num_tours
+    os.makedirs(os.path.join(experiment_dir,'visualization'), exist_ok=True)
+    plot_tours(batch, tours, os.path.join(experiment_dir,'visualization', f'epoch_{epoch}_tour.png'))
     solver.train()
     return avg_val_loss, avg_tour_length
 
@@ -216,22 +224,22 @@ def evaluate(solver, experiment_dir, logger):
     solver.to(device)
 
     # Load the validation dataset
-    num_samples = 16
-    min_points = 8
-    max_points = 8
-    seed = 42
+    num_samples = 51200
+    min_points = 10
+    max_points = 15
+    val_seed = 21
 
-    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{seed}.pkl"
+    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{val_seed}.pkl"
     val_dataloader = get_tsp_dataloader(
         batch_size=16,
         num_samples=num_samples,
         min_points=min_points,
         max_points=max_points,
-        seed=seed,
+        seed=val_seed,
         load_path=val_load_path,
     )
     # Validate the solver
-    avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device)
+    avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device, experiment_dir, epoch=-1)
     avg_solution_tour_length = calculate_avg_solution_tour_length(val_dataloader, device)
     logger.info(
         f"Validation Loss: {avg_val_loss:.4f}, Validation Tour Length: {avg_tour_length:.4f}, Validation Solution Tour Length: {avg_solution_tour_length:.4f}"

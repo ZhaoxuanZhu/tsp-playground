@@ -2,13 +2,13 @@ import matplotlib.pyplot as plt
 import os
 
 
-def plot_tours(batch_problems, tours, experiment_dir):
+def plot_tours(batch_problems, tours, save_path):
     # Plot the tours in subfigures
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
     axes = axes.flatten()
 
     for i, (problem, tour) in enumerate(zip(batch_problems, tours)):
-        if i >= 5:  # We only have 5 subfigures
+        if i > 5:  # We only have 5 subfigures
             break
 
         ax = axes[i]
@@ -102,7 +102,7 @@ def plot_tours(batch_problems, tours, experiment_dir):
         fig.delaxes(axes[j])
 
     plt.tight_layout()
-    plt.savefig(os.path.join(experiment_dir, "tours.png"))
+    plt.savefig(save_path)
     plt.close()
 
 

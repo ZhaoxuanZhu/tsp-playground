@@ -1,8 +1,8 @@
 # Ignore .res files
 *.res
-
-# Ignore .png files
-*.png
+*.sol
+*.pul
+*.sav
 
 # Ignore .vscode directory
 .vscode/

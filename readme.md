@@ -34,7 +34,7 @@ This project implements a Transformer-based solver for the Traveling Salesman Pr
 
 ## Training and Evaluation
 
-To train the model:
+To train the model with supervised learning:
 
 1. Run the following command:
    ```
@@ -47,7 +47,7 @@ To train the model:
    - `--max_lr`: Set the maximum learning rate
    - `--use_scheduler`: Include this flag to use the learning rate scheduler
 
-2. The training process will log information to the console and save checkpoints in the experiment directory.
+2. The training process will log information to the console and save checkpoints and visualizations in the experiment directory.
 
 To evaluate the model:
 
@@ -59,4 +59,38 @@ To evaluate the model:
    Make sure to use the same `experiment_name` as used during training.
 
 2. The evaluation results will be displayed in the console, showing the validation loss and tour length.
+
+
+## Results
+### Supervised Learning
+With the following dataloader setup:
+
+```
+train_dataloader = get_tsp_dataloader(
+    batch_size=2048,
+    num_samples=51200,
+    min_points=10,
+    max_points=15,
+    seed=42,
+)
+val_dataloader = get_tsp_dataloader(
+    batch_size=2048,
+    num_samples=5120,
+    min_points=10,
+    max_points=15,
+    seed=21,
+)
+```
+
+The following training curves were achieved after 1000 epochs of training:
+
+![Training Results](rendering/loss_curves.png)
+
+It looks like after 1000 epochs the model is unepxectedly overperforming the solution provided by the Concorde TSP Solver.
+
+The tours from the trained model can be visualized as follows:
+
+![TSP Tour](rendering/epoch_-1_tour.png)
+
+
 
