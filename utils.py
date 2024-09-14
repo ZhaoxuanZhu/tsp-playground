@@ -1,11 +1,12 @@
 import torch
 import copy
+import os
 from helpers import save_model, get_device, get_train_val_dataloaders
 from visualization import plot_tours, plot_loss_curve
 from data import get_tsp_dataloader
 from builder import build_optimizer_and_scheduler
 import time
-import tqdm
+from tqdm import tqdm
 
 
 def calculate_tour_lengths(batch, tours):
@@ -19,7 +20,7 @@ def calculate_tour_lengths(batch, tours):
     Returns:
         torch.Tensor: The lengths of the tours.
     """
-    tour_points = torch.gather(batch.points, 1, tours.unsqueeze(-1).expand(-1, -1, 2))
+    tour_points = torch.gather(batch.points, 1, tours.clamp(min=0).unsqueeze(-1).expand(-1, -1, 2))
     tour_lengths = torch.sum(
         torch.norm(tour_points[:, 1:] - tour_points[:, :-1], dim=2) * batch.padding_mask.float(), dim=1
     )
@@ -209,7 +210,7 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
     max_points = 15
     train_seed = 42
     val_seed = 21
-    batch_size = 2048
+    batch_size = 1024
     train_dataloader, val_dataloader = get_train_val_dataloaders(num_samples, min_points, max_points, train_seed, val_seed, batch_size)
 
     optimizer, scheduler = build_optimizer_and_scheduler(
@@ -225,46 +226,49 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
     for epoch in range(num_epochs):
         total_loss = 0.0
         start_time = time.time()
-        for batch in train_dataloader:
-            batch = batch.to(device)
+        with tqdm(total=len(train_dataloader), desc=f"Epoch {epoch + 1}/{num_epochs}", leave=False) as pbar:
+            for batch in train_dataloader:
+                batch = batch.to(device)
 
-            # Generate two sets of tours
-            with torch.no_grad():
-                tours_1 = solver.solve(batch, sample=True)
-                tours_2 = solver.solve(batch, sample=True)
+                # Generate two sets of tours
+                with torch.no_grad():
+                    tours_1 = solver.solve(batch, sample=True)
+                    tours_2 = solver.solve(batch, sample=True)
 
-                # Calculate tour lengths
-                lengths_1 = calculate_tour_lengths(batch, tours_1)
-                lengths_2 = calculate_tour_lengths(batch, tours_2)
+                    # Calculate tour lengths
+                    lengths_1 = calculate_tour_lengths(batch, tours_1)
+                    lengths_2 = calculate_tour_lengths(batch, tours_2)
 
-                # Calculate log probabilities of both tours using the pretrained solver
-                pretrained_log_probs_1 = pretrained_solver.log_probability(batch, tours_1)
-                pretrained_log_probs_2 = pretrained_solver.log_probability(batch, tours_2)
+                    # Calculate log probabilities of both tours using the pretrained solver
+                    pretrained_log_probs_1 = pretrained_solver.log_probability(batch, tours_1)
+                    pretrained_log_probs_2 = pretrained_solver.log_probability(batch, tours_2)
 
-            # Calculate log probabilities of both tours
-            log_probs_1 = solver.log_probability(batch, tours_1)
-            log_probs_2 = solver.log_probability(batch, tours_2)
+                # Calculate log probabilities of both tours
+                log_probs_1 = solver.log_probability(batch, tours_1)
+                log_probs_2 = solver.log_probability(batch, tours_2)
 
-            # Calculate DPO loss
-            loss = -torch.mean(
-                torch.nn.functional.logsigmoid(
-                    beta * (log_probs_1 - log_probs_2 - (pretrained_log_probs_1 - pretrained_log_probs_2))
+                # Calculate DPO loss
+                loss = -torch.mean(
+                    torch.nn.functional.logsigmoid(
+                        beta * (log_probs_1 - log_probs_2 - (pretrained_log_probs_1 - pretrained_log_probs_2))
+                    )
+                    * (lengths_2 > lengths_1).float()
+                    + torch.nn.functional.logsigmoid(
+                        beta * (log_probs_2 - log_probs_1 - (pretrained_log_probs_2 - pretrained_log_probs_1))
+                    )
+                    * (lengths_1 > lengths_2).float()
                 )
-                * (lengths_2 > lengths_1).float()
-                + torch.nn.functional.logsigmoid(
-                    beta * (log_probs_2 - log_probs_1 - (pretrained_log_probs_2 - pretrained_log_probs_1))
-                )
-                * (lengths_1 > lengths_2).float()
-            )
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            if scheduler:
-                scheduler.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                if scheduler:
+                    scheduler.step()
 
-            total_loss += loss.item()
-            epoch_time = time.time() - start_time
+                total_loss += loss.item()
+                epoch_time = time.time() - start_time
+                pbar.set_postfix(loss=loss.item())
+                pbar.update(1)  # Update the progress bar
 
         # Step the learning rate scheduler
         current_lr = scheduler.get_last_lr()[0] if scheduler else max_lr
@@ -274,7 +278,7 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
 
         # Validate and save model periodically
         if (epoch + 1) % 10 == 0:
-            avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device)
+            avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device, experiment_dir, epoch)
             logger.info("-" * 50)  # This will log a line of 50 dashes as a separator
             logger.info(f"Epoch [{epoch+1}/{num_epochs}]")
             logger.info(f"Epoch Time: {epoch_time:.2f} seconds")

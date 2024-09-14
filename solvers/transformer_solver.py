@@ -149,10 +149,10 @@ class TransformerSolver(nn.Module, TSPSolver):
                 attention_scores = self.attention_v(torch.tanh(query.unsqueeze(2) + key.unsqueeze(1))).squeeze(-1)
 
                 # Mask out already visited cities
-                attention_scores.scatter_(2, solution[:, :i].unsqueeze(1), float("-inf"))
+                attention_scores.scatter_(2, solution[:, :i].unsqueeze(1), -1e5)
 
                 # Mask out based on padding mask
-                attention_scores.masked_fill_(~padding_mask.unsqueeze(1), float("-inf"))
+                attention_scores.masked_fill_(~padding_mask.unsqueeze(1), -1e5)
 
                 if sample:
                     # Apply temperature to attention scores
