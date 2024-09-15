@@ -29,7 +29,7 @@ This project implements a Transformer-based solver for the Traveling Salesman Pr
 
 4. Install the required packages:
    ```
-   pip install torch torchvision numpy matplotlib einops
+   pip install torch torchvision numpy matplotlib einops tqdm
    ```
 
 ## Training and Evaluation
@@ -90,7 +90,7 @@ It looks like after 1000 epochs the model is unepxectedly overperforming the sol
 
 The tours from the trained model can be visualized as follows:
 
-<img src="rendering/supervised_epoch_tour.png" alt="TSP Tour" width="600"/>
+<img src="rendering/supervised_tour.png" alt="TSP Tour" width="600"/>
 
 
 ### Reinforcement Learning with DPO
@@ -104,5 +104,5 @@ From here, another imporvement in the averaged tour length can be seen.
 
 The tours from the trained model can be visualized as follows:
 
-<img src="rendering/rl_fine_tuning_epoch_tour.png" alt="TSP Tour" width="600"/>
+<img src="rendering/rl_fine_tuning_tour.png" alt="TSP Tour" width="600"/>
 
