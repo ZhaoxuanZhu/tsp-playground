@@ -2,104 +2,83 @@ import matplotlib.pyplot as plt
 import os
 
 
-def plot_tours(batch_problems, tours, save_path):
+def plot_tours(batch_problems, tours, save_path, num_subfigures=8):
+    columns_per_row = 4
     # Plot the tours in subfigures
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    axes = axes.flatten()
+    rows = (num_subfigures + columns_per_row - 1) // columns_per_row * 2
+    cols = min(num_subfigures, columns_per_row)
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 5))
 
     for i, (problem, tour) in enumerate(zip(batch_problems, tours)):
-        if i > 5:  # We only have 5 subfigures
+        if i >= num_subfigures:
             break
 
-        ax = axes[i]
         points = problem.points
-
-        # Plot the points
-        ax.scatter(points[:, 0], points[:, 1], c="blue")
-
-        # Plot the predicted tour
-        for j in range(len(tour) - 1):
-            start = points[tour[j].item()]
-            end = points[tour[j + 1].item()]
-            ax.plot(
-                [start[0], end[0]],
-                [start[1], end[1]],
-                c="red",
-                alpha=0.5,
-                label="Predicted" if j == 0 else "",
-            )
-            # Add text for the order of the tour
-            ax.text(
-                start[0],
-                start[1],
-                str(j),
-                color="red",
-                fontsize=12,
-                ha="right",
-                va="bottom",
-            )
-
-        # Plot the return to start for predicted tour
-        start = points[tour[-1].item()]
-        end = points[tour[0].item()]
-        ax.plot([start[0], end[0]], [start[1], end[1]], c="red", alpha=0.5)
-        # Add text for the last point
-        ax.text(
-            start[0],
-            start[1],
-            str(len(tour) - 1),
-            color="red",
-            fontsize=12,
-            ha="right",
-            va="bottom",
-        )
-
-        # Plot the solution from batch_problem
         solution = problem.solution
+
+        # Plot the solution
+        ax_solution = axes[i // columns_per_row * 2, i % columns_per_row]
+        ax_solution.scatter(points[:, 0], points[:, 1], c="blue")
+
+        solution_length = 0
         for j in range(len(solution) - 1):
             start = points[solution[j]]
             end = points[solution[j + 1]]
-            ax.plot(
-                [start[0], end[0]],
-                [start[1], end[1]],
-                c="green",
-                alpha=0.5,
-                label="Solution" if j == 0 else "",
-            )
-            # Add text for the order of the solution
-            ax.text(
-                start[0],
-                start[1],
-                f"{j}",
-                color="green",
-                fontsize=12,
-                ha="left",
-                va="top",
-            )
+            ax_solution.plot([start[0], end[0]], [start[1], end[1]], c="green", alpha=0.5)
+            ax_solution.text(start[0], start[1], f"{j}", color="green", fontsize=12, ha="left", va="top")
+            solution_length += ((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) ** 0.5
 
-        # Plot the return to start for solution
         start = points[solution[-1]]
         end = points[solution[0]]
-        ax.plot([start[0], end[0]], [start[1], end[1]], c="green", alpha=0.5)
-        # Add text for the last point of the solution
-        ax.text(
-            start[0],
-            start[1],
-            f"{len(solution)-1}",
-            color="green",
-            fontsize=12,
-            ha="left",
-            va="top",
+        ax_solution.plot([start[0], end[0]], [start[1], end[1]], c="green", alpha=0.5)
+        ax_solution.text(start[0], start[1], f"{len(solution)-1}", color="green", fontsize=12, ha="left", va="top")
+        solution_length += ((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) ** 0.5
+
+        ax_solution.set_title(f"Tour {i+1} - Solution")
+        ax_solution.set_xlabel("X coordinate")
+        ax_solution.set_ylabel("Y coordinate")
+        ax_solution.text(
+            0.05,
+            0.95,
+            f"Length: {solution_length:.2f}",
+            transform=ax_solution.transAxes,
+            verticalalignment="top",
+            fontsize=10,
         )
 
-        ax.set_title(f"Tour {i+1}")
-        ax.set_xlabel("X coordinate")
-        ax.set_ylabel("Y coordinate")
-        ax.legend()
+        # Plot the prediction
+        ax_prediction = axes[i // columns_per_row * 2 + 1, i % columns_per_row]
+        ax_prediction.scatter(points[:, 0], points[:, 1], c="blue")
 
-    # Remove any unused subfigures
-    for j in range(i + 1, 6):
-        fig.delaxes(axes[j])
+        prediction_length = 0
+        for j in range(len(tour) - 1):
+            start = points[tour[j].item()]
+            end = points[tour[j + 1].item()]
+            ax_prediction.plot([start[0], end[0]], [start[1], end[1]], c="red", alpha=0.5)
+            ax_prediction.text(start[0], start[1], str(j), color="red", fontsize=12, ha="right", va="bottom")
+            prediction_length += ((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) ** 0.5
+
+        start = points[tour[-1].item()]
+        end = points[tour[0].item()]
+        ax_prediction.plot([start[0], end[0]], [start[1], end[1]], c="red", alpha=0.5)
+        ax_prediction.text(start[0], start[1], str(len(tour) - 1), color="red", fontsize=12, ha="right", va="bottom")
+        prediction_length += ((start[0] - end[0]) ** 2 + (start[1] - end[1]) ** 2) ** 0.5
+
+        ax_prediction.set_title(f"Tour {i+1} - Prediction")
+        ax_prediction.set_xlabel("X coordinate")
+        ax_prediction.set_ylabel("Y coordinate")
+        ax_prediction.text(
+            0.05,
+            0.95,
+            f"Length: {prediction_length:.2f}",
+            transform=ax_prediction.transAxes,
+            verticalalignment="top",
+            fontsize=10,
+        )
+
+    for j in range(i + 1, num_subfigures):
+        fig.delaxes(axes[j // columns_per_row * 2, j % columns_per_row])
+        fig.delaxes(axes[j // columns_per_row * 2 + 1, j % columns_per_row])
 
     plt.tight_layout()
     plt.savefig(save_path)

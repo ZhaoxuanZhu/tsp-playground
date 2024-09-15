@@ -61,7 +61,7 @@ def save_model(solver, epoch, experiment_dir):
 def get_train_val_dataloaders(num_samples=16, min_points=8, max_points=8, train_seed=42, val_seed=42, batch_size=16):
     # Create load_path based on the parameters
     train_load_path = f"data/train/problems_{num_samples}_{min_points}_{max_points}_{train_seed}.pkl"
-    val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{val_seed}.pkl"
+    val_load_path = f"data/val/problems_{int(num_samples / 10)}_{min_points}_{max_points}_{val_seed}.pkl"
 
     # Get the training and validation dataloaders
     train_dataloader = get_tsp_dataloader(

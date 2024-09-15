@@ -167,21 +167,18 @@ def validate(solver, val_dataloader, device, experiment_dir, epoch):
             tours = solver.solve(batch)
 
             # Calculate tour lengths using batch operations
-            tour_points = torch.gather(batch.points, 1, tours.unsqueeze(-1).expand(-1, -1, 2))
-            tour_lengths = torch.sum(
-                torch.norm(tour_points[:, 1:] - tour_points[:, :-1], dim=2) * batch.padding_mask.float(), dim=1
-            )
-
+            tour_lengths = calculate_tour_lengths(batch, tours)
             # Apply padding mask to tour lengths
             total_tour_length += tour_lengths.sum().item()
-
             # Compute the number of valid tours
-            num_tours += batch.padding_mask.size(0)
+            num_tours += len(tour_lengths)
 
     avg_val_loss = val_loss / len(val_dataloader)
     avg_tour_length = total_tour_length / num_tours
     os.makedirs(os.path.join(experiment_dir, "visualization"), exist_ok=True)
-    plot_tours(batch, tours, os.path.join(experiment_dir, "visualization", f"epoch_{epoch + 1}_tour.png"))
+    plot_tours(
+        batch, tours, os.path.join(experiment_dir, "visualization", f"epoch_{epoch + 1}_tour.png"), num_subfigures=16
+    )
     solver.train()
     return avg_val_loss, avg_tour_length
 
@@ -324,7 +321,7 @@ def evaluate(solver, experiment_dir, logger):
     solver.to(device)
 
     # Load the validation dataset
-    num_samples = 51200
+    num_samples = 5120
     min_points = 10
     max_points = 15
     val_seed = 21
@@ -332,7 +329,7 @@ def evaluate(solver, experiment_dir, logger):
     val_load_path = f"data/val/problems_{num_samples}_{min_points}_{max_points}_{val_seed}.pkl"
     val_dataloader = get_tsp_dataloader(
         batch_size=2048,
-        num_samples=int(num_samples / 10),
+        num_samples=num_samples,
         min_points=min_points,
         max_points=max_points,
         seed=val_seed,
@@ -340,7 +337,7 @@ def evaluate(solver, experiment_dir, logger):
         shuffle=False,
     )
     # Validate the solver
-    avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device, experiment_dir, epoch=-1)
+    avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device, experiment_dir, epoch=-2)
     avg_solution_tour_length = calculate_avg_solution_tour_length(val_dataloader, device)
     logger.info(
         f"Validation Loss: {avg_val_loss:.4f}, Validation Tour Length: {avg_tour_length:.4f}, Validation Solution Tour Length: {avg_solution_tour_length:.4f}"
