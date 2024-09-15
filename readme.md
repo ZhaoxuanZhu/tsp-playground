@@ -29,7 +29,7 @@ This project implements a Transformer-based solver for the Traveling Salesman Pr
 
 4. Install the required packages:
    ```
-   pip install torch torchvision numpy matplotlib einops
+   pip install torch torchvision numpy matplotlib einops tqdm
    ```
 
 ## Training and Evaluation
@@ -84,13 +84,25 @@ val_dataloader = get_tsp_dataloader(
 
 The following training curves were achieved after 1000 epochs of training:
 
-![Training Results](rendering/loss_curves.png)
+<img src="rendering/supervised_loss_curves.png" alt="Training Results" width="600"/>
 
 It looks like after 1000 epochs the model is unepxectedly overperforming the solution provided by the Concorde TSP Solver.
 
 The tours from the trained model can be visualized as follows:
 
-![TSP Tour](rendering/epoch_-1_tour.png)
+<img src="rendering/supervised_tour.png" alt="TSP Tour" width="600"/>
 
 
+### Reinforcement Learning with DPO
+With the same dataloader setup as above, the following training curves were achieved after 100 epochs of training:
+
+<img src="rendering/rl_fine_tuning_loss_curves.png" alt="DPO Loss Curves" width="600"/>
+
+To stablize the training, a smaller max learning rate of 1e-5 were used.
+
+From here, another imporvement in the averaged tour length can be seen.
+
+The tours from the trained model can be visualized as follows:
+
+<img src="rendering/rl_fine_tuning_tour.png" alt="TSP Tour" width="600"/>
 
