@@ -84,19 +84,19 @@ val_dataloader = get_tsp_dataloader(
 
 The following training curves were achieved after 1000 epochs of training:
 
-<img src="rendering/supervised_loss_curves.png" alt="Training Results" width="600"/>
+<img src="rendering/supervised_loss_curves.png" alt="Training Results" width="400"/>
 
 It looks like after 1000 epochs the model is unepxectedly overperforming the solution provided by the Concorde TSP Solver.
 
 The tours from the trained model can be visualized as follows:
 
-<img src="rendering/supervised_tour.png" alt="TSP Tour" width="600"/>
+<img src="rendering/supervised_tour.png" alt="TSP Tour" width="800"/>
 
 
 ### Reinforcement Learning with DPO
 With the same dataloader setup as above, the following training curves were achieved after 100 epochs of training:
 
-<img src="rendering/rl_fine_tuning_loss_curves.png" alt="DPO Loss Curves" width="600"/>
+<img src="rendering/rl_fine_tuning_loss_curves.png" alt="DPO Loss Curves" width="400"/>
 
 To stablize the training, a smaller max learning rate of 1e-5 were used.
 
@@ -104,5 +104,22 @@ From here, another imporvement in the averaged tour length can be seen.
 
 The tours from the trained model can be visualized as follows:
 
-<img src="rendering/rl_fine_tuning_tour.png" alt="TSP Tour" width="600"/>
+<img src="rendering/rl_fine_tuning_tour.png" alt="TSP Tour" width="800"/>
+
+### Comparison with Baselines
+Here's a comparison table of the baseline supervised learning method and the DPO method:
+
+| Method | Average Tour Length | Improvement (%) |
+|--------|-----------------|-----------------|
+| Baseline | 7.392| 0.00%|
+| Supervised Learning | 7.122 | 3.65%|
+| DPO Fine-tuning | 6.393 | 13.51%|
+
+As we can see from the table:
+
+1. The DPO fine-tuning method achieved a lower average tour length compared to the supervised learning method, indicating better overall performance.
+2. Both methods are performing slightly better than the average solution tour length provided by the Concorde TSP Solver, which is an interesting observation that may warrant further investigation.
+
+These results demonstrate that the DPO fine-tuning approach provides a noticeable improvement over the baseline supervised learning method for solving the Traveling Salesman Problem.
+
 
