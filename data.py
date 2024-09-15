@@ -77,8 +77,10 @@ class TSPDataset(Dataset):
         return self.problems[idx]
 
 
-def get_tsp_dataloader(batch_size=32, num_samples=100, min_points=5, max_points=20, seed=None, load_path=None):
+def get_tsp_dataloader(
+    batch_size=32, num_samples=100, min_points=5, max_points=20, seed=None, load_path=None, shuffle=True
+):
     dataset = TSPDataset(
         load_path, DatasetGenerationParams(num_samples, min_points, max_points, seed, save_path=load_path)
     )
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=TSPBatch.collate_fn)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=TSPBatch.collate_fn)

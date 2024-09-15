@@ -71,6 +71,7 @@ def get_train_val_dataloaders(num_samples=16, min_points=8, max_points=8, train_
         max_points=max_points,
         seed=train_seed,
         load_path=train_load_path,
+        shuffle=True,
     )
     val_dataloader = get_tsp_dataloader(
         batch_size=batch_size,
@@ -79,6 +80,7 @@ def get_train_val_dataloaders(num_samples=16, min_points=8, max_points=8, train_
         max_points=max_points,
         seed=val_seed,
         load_path=val_load_path,
+        shuffle=False,
     )
 
     return train_dataloader, val_dataloader

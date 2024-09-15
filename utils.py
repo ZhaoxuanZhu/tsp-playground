@@ -73,7 +73,9 @@ def train(solver, experiment_dir, num_epochs, max_lr, use_scheduler, logger):
     train_seed = 42
     val_seed = 21
     batch_size = 2048
-    train_dataloader, val_dataloader = get_train_val_dataloaders(num_samples, min_points, max_points, train_seed, val_seed, batch_size)
+    train_dataloader, val_dataloader = get_train_val_dataloaders(
+        num_samples, min_points, max_points, train_seed, val_seed, batch_size
+    )
 
     # Calculate the average solution tour length from the validation dataloader
     avg_solution_tour_length = calculate_avg_solution_tour_length(val_dataloader, device)
@@ -178,8 +180,8 @@ def validate(solver, val_dataloader, device, experiment_dir, epoch):
 
     avg_val_loss = val_loss / len(val_dataloader)
     avg_tour_length = total_tour_length / num_tours
-    os.makedirs(os.path.join(experiment_dir,'visualization'), exist_ok=True)
-    plot_tours(batch, tours, os.path.join(experiment_dir,'visualization', f'epoch_{epoch}_tour.png'))
+    os.makedirs(os.path.join(experiment_dir, "visualization"), exist_ok=True)
+    plot_tours(batch, tours, os.path.join(experiment_dir, "visualization", f"epoch_{epoch + 1}_tour.png"))
     solver.train()
     return avg_val_loss, avg_tour_length
 
@@ -211,7 +213,9 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
     train_seed = 42
     val_seed = 21
     batch_size = 1024
-    train_dataloader, val_dataloader = get_train_val_dataloaders(num_samples, min_points, max_points, train_seed, val_seed, batch_size)
+    train_dataloader, val_dataloader = get_train_val_dataloaders(
+        num_samples, min_points, max_points, train_seed, val_seed, batch_size
+    )
 
     optimizer, scheduler = build_optimizer_and_scheduler(
         solver, max_lr, use_scheduler, len(train_dataloader), num_epochs
@@ -222,6 +226,11 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
     logger.info(f"Average Solution Tour Length: {avg_solution_tour_length:.4f}")
 
     beta = 0.1
+
+    # Training loop
+    losses = []
+    val_losses = []
+    val_tour_lengths = []
 
     for epoch in range(num_epochs):
         total_loss = 0.0
@@ -275,6 +284,7 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
 
         # Calculate the average loss for the epoch
         avg_epoch_loss = total_loss / len(train_dataloader)
+        losses.append(avg_epoch_loss)
 
         # Validate and save model periodically
         if (epoch + 1) % 10 == 0:
@@ -288,6 +298,13 @@ def rl_fine_tune_with_dpo(solver, experiment_dir, num_epochs, max_lr, use_schedu
             logger.info(f"Average Solution Tour Length: {avg_solution_tour_length:.4f}")
             logger.info(f"Current learning rate: {current_lr:.6f}")
             save_model(solver, epoch, experiment_dir)
+            val_losses.append(avg_val_loss)
+            val_tour_lengths.append(avg_tour_length)
+
+    # Add the average solution tour length to the list for plotting
+    val_solution_tour_lengths = [avg_solution_tour_length] * len(val_tour_lengths)
+
+    plot_loss_curve(losses, val_losses, val_tour_lengths, val_solution_tour_lengths, experiment_dir)
 
     logger.info("RL fine-tuning with DPO completed.")
 
@@ -320,6 +337,7 @@ def evaluate(solver, experiment_dir, logger):
         max_points=max_points,
         seed=val_seed,
         load_path=val_load_path,
+        shuffle=False,
     )
     # Validate the solver
     avg_val_loss, avg_tour_length = validate(solver, val_dataloader, device, experiment_dir, epoch=-1)

@@ -7,8 +7,13 @@ from utils import train, evaluate, rl_fine_tune_with_dpo
 from builder import build_model
 import logging
 import os
-import time
-from tqdm import tqdm
+import torch
+
+# Set a fixed seed for reproducibility
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 # Set up logging
